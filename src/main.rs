@@ -6,6 +6,7 @@ use std::io::Write;
 use rayon::prelude::*;
 
 fn analyze_file(path: &std::path::Path) -> Option<(String, serde_json::Value)> {
+    println!("Analyzing: {}", path.display());
     let metadata = fs::metadata(path).ok()?;
     let file_size = metadata.len();
     let content = fs::read_to_string(path).ok()?;
@@ -71,49 +72,54 @@ fn analyze_file(path: &std::path::Path) -> Option<(String, serde_json::Value)> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
-        println!(
-            "codebase-analyzer2 v{}: Analyze code projects and summarize for Grok 3\n\
-             Usage: codebase-analyzer2 [options] [path] [extensions] [output_file]\n\
-             Options:\n\
-             - --all: Analyze all files (ignore extensions)\n\
-             - path: Directory to analyze (default: .)\n\
-             - extensions: Comma-separated file types (default: py,rs,c,cpp,h,json)\n\
-             - output_file: JSON output file (default: summary.json)",
-            env!("CARGO_PKG_VERSION")
-        );
+    if args.len() < 2 {
+        println!("Usage: codebase-analyzer2 [path] [--all] [extensions] [output_file]");
         return Ok(());
     }
 
+    let mut path = ".".to_string();
     let mut use_all = false;
-    let mut start_idx = 1;
-    if args.len() > 1 && args[1] == "--all" {
-        use_all = true;
-        start_idx = 2;
-    }
-
-    let path = args.get(start_idx).unwrap_or(&".".to_string()).clone();
-    let default_extensions = vec![
+    let mut extensions: Vec<String> = vec![
         "py".to_string(), "rs".to_string(), "c".to_string(),
         "cpp".to_string(), "h".to_string(), "json".to_string()
     ];
-    let extensions: Vec<String> = if use_all {
-        vec![] // No extensions filter with --all
-    } else {
-        args.get(start_idx + 1)
-            .map(|s| s.split(',').map(String::from).collect())
-            .unwrap_or(default_extensions)
-    };
-    let output_file = args.get(start_idx + (if use_all { 1 } else { 2 }))
-        .unwrap_or(&"summary.json".to_string())
-        .clone();
+    let mut output_file = "summary.json".to_string();
+    let mut i = 1;
+
+    // Parse path
+    if !args[i].starts_with('-') {
+        path = args[i].clone();
+        i += 1;
+    }
+
+    // Parse --all
+    if i < args.len() && args[i] == "--all" {
+        use_all = true;
+        extensions = vec![];
+        i += 1;
+    }
+
+    // Parse extensions if not using --all
+    if !use_all && i < args.len() && !args[i].starts_with('-') {
+        extensions = args[i].split(',').map(String::from).collect();
+        i += 1;
+    }
+
+    // Parse output file
+    if i < args.len() {
+        output_file = args[i].clone();
+    }
+
+    println!("Path: {}, Use all: {}, Extensions: {:?}, Output: {}", path, use_all, extensions, output_file);
 
     let file_metrics: HashMap<String, serde_json::Value> = WalkDir::new(&path)
-        .min_depth(1)
         .into_iter()
         .par_bridge()
         .filter_map(|entry| match entry {
-            Ok(e) => Some(e),
+            Ok(e) => {
+                println!("Found entry: {}", e.path().display());
+                Some(e)
+            }
             Err(e) => {
                 eprintln!("Warning: Skipping entry due to error: {}", e);
                 None
@@ -121,9 +127,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .filter_map(|entry| {
             let path = entry.path();
+            if !path.is_file() {
+                println!("Skipping non-file: {}", path.display());
+                return None;
+            }
             if use_all || path.extension().and_then(|s| s.to_str()).map_or(false, |ext| extensions.contains(&ext.to_string())) {
                 analyze_file(path)
             } else {
+                println!("Skipping due to extension: {}", path.display());
                 None
             }
         })
