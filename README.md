@@ -64,8 +64,16 @@ cargo install --path .
 
 ## Usage
 
+Specify file extensions to include in analysis:
+
 ```bash
 codebase-analyzer2 ./my_project py,rs,c summary.json
+```
+
+Or include all of the above extensions:
+
+```bash
+codebase-analyzer2 ./my_project --all summary.json
 ```
 
 - path: Directory to analyze (default: .).

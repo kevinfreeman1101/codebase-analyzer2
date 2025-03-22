@@ -1,0 +1,45 @@
+{
+  "errors": [],
+  "exts": "all",
+  "files": {
+    "./test/sample.c": {
+      "complexity": 0,
+      "deps": [
+        "<stdio.h>"
+      ],
+      "doc_percent": 20.0,
+      "hotspots": [],
+      "lines": 5,
+      "size_bytes": 69,
+      "vars": []
+    },
+    "./test/sample.py": {
+      "complexity": 2,
+      "deps": [],
+      "doc_percent": 0.0,
+      "hotspots": [],
+      "lines": 3,
+      "size_bytes": 42,
+      "vars": []
+    },
+    "./test/sample.rs": {
+      "complexity": 2,
+      "deps": [
+        "std::fs"
+      ],
+      "doc_percent": 0.0,
+      "hotspots": [
+        "Line 3: for _ in 0..10 {}"
+      ],
+      "lines": 4,
+      "size_bytes": 49,
+      "vars": []
+    }
+  },
+  "files_count": 3,
+  "lines": 12,
+  "path": "./test",
+  "size": 160,
+  "ts": "2025-03-22T04:59:15.305033647+00:00",
+  "version": "0.1.0"
+}
