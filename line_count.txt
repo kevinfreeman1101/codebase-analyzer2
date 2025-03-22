@@ -1,0 +1,2 @@
+./src/main.rs: 20 lines
+Total lines: 20

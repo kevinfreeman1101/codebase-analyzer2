@@ -1,6 +1,10 @@
 [package]
 name = "codebase-analyzer2"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+walkdir = "2"
+serde_json = "1.0"
+chrono = "0.4"
+rayon = "1.5" # For parallel processing
