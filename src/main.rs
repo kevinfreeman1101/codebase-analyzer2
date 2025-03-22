@@ -74,7 +74,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
         println!(
             "codebase-analyzer2 v{}: Analyze code projects and summarize for Grok 3\n\
-             Usage: codebase-analyzer2 [path] [extensions] [output_file]\n\
+             Usage: codebase-analyzer2 [options] [path] [extensions] [output_file]\n\
+             Options:\n\
+             - --all: Analyze all files (ignore extensions)\n\
              - path: Directory to analyze (default: .)\n\
              - extensions: Comma-separated file types (default: py,rs,c,cpp,h,json)\n\
              - output_file: JSON output file (default: summary.json)",
@@ -83,15 +85,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let path = args.get(1).unwrap_or(&".".to_string()).clone();
+    let mut use_all = false;
+    let mut start_idx = 1;
+    if args.len() > 1 && args[1] == "--all" {
+        use_all = true;
+        start_idx = 2;
+    }
+
+    let path = args.get(start_idx).unwrap_or(&".".to_string()).clone();
     let default_extensions = vec![
         "py".to_string(), "rs".to_string(), "c".to_string(),
         "cpp".to_string(), "h".to_string(), "json".to_string()
     ];
-    let extensions: Vec<String> = args.get(2)
-        .map(|s| s.split(',').map(String::from).collect())
-        .unwrap_or(default_extensions);
-    let output_file = args.get(3).unwrap_or(&"summary.json".to_string()).clone();
+    let extensions: Vec<String> = if use_all {
+        vec![] // No extensions filter with --all
+    } else {
+        args.get(start_idx + 1)
+            .map(|s| s.split(',').map(String::from).collect())
+            .unwrap_or(default_extensions)
+    };
+    let output_file = args.get(start_idx + (if use_all { 1 } else { 2 }))
+        .unwrap_or(&"summary.json".to_string())
+        .clone();
 
     let file_metrics: HashMap<String, serde_json::Value> = WalkDir::new(&path)
         .min_depth(1)
@@ -106,12 +121,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .filter_map(|entry| {
             let path = entry.path();
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                if extensions.contains(&ext.to_string()) {
-                    analyze_file(path)
-                } else {
-                    None
-                }
+            if use_all || path.extension().and_then(|s| s.to_str()).map_or(false, |ext| extensions.contains(&ext.to_string())) {
+                analyze_file(path)
             } else {
                 None
             }
@@ -124,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let total_size: u64 = file_metrics.values()
         .map(|v| v["size_bytes"].as_u64().unwrap_or(0))
         .sum();
-    let errors: Vec<String> = Vec::new(); // Could log errors here if expanded
+    let errors: Vec<String> = Vec::new();
 
     let summary = json!({
         "ts": chrono::Utc::now().to_rfc3339(),
@@ -133,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "lines": total_lines,
         "size": total_size,
         "path": path,
-        "exts": extensions,
+        "exts": if use_all { "all".to_string() } else { extensions.join(",") },
         "errors": errors,
         "files": file_metrics
     });
